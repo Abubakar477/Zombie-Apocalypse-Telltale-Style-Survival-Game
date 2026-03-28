@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
 
 namespace Zombie_apocolypse_telltale
 {
@@ -12,10 +14,14 @@ namespace Zombie_apocolypse_telltale
         private bool chapterIntroPlayed = false;
         private Random rng = new Random();
 
-        // paragraph sequencing for chapter text
+        // --- NAYA: Karma aur Consequences ke variables ---
+        private bool trustedSarah = false;
+        private bool savedChild = false;
+        // -------------------------------------------------
+
         private List<string> chapterParagraphs = new List<string>();
         private int currentParagraphIndex = 0;
-        private bool isReading = false; // Nayi state: Check karne ke liye ke hum abhi story parh rahe hain
+        private bool isReading = false;
 
         private readonly Action<string> output;
         private readonly Action<string, string, string, string> updateOptions;
@@ -62,7 +68,7 @@ namespace Zombie_apocolypse_telltale
                         "In the crushing chaos of the panicked crowd, her hand slipped from yours. You fought like a madman to reach her, but it was too late. The infected overwhelmed the area. Heartbroken, traumatized, and forced by pure survival instinct, you barely escaped the mall alive."
                     };
                     StartReading(paras);
-                    return; // Story print hona shuru, baqi code roko
+                    return;
                 }
                 ShowChapterOptions();
             }
@@ -117,15 +123,39 @@ namespace Zombie_apocolypse_telltale
             {
                 if (!chapterIntroPlayed)
                 {
-                    var paras = new[]
+                    // --- NAYA: Multiple Endings Logic ---
+                    var paras = new List<string>
                     {
                         "==================================================",
                         "Just as a zombie lunges for the child, the massive diesel engine roars to life!",
-                        "You pull yourself aboard. The train smashes through the barricades, leaving the horde behind.",
-                        "You collapse on the floor, bleeding but victorious.",
-                        $"*** YOU SURVIVED! FINAL HEALTH: {playerHealth} ***"
+                        "You pull yourself aboard. The train smashes through the barricades, leaving the horde behind."
                     };
-                    StartReading(paras);
+
+                    if (savedChild && trustedSarah)
+                    {
+                        // ENDING 1: Sab theek ho gaya
+                        paras.Add("You collapse on the floor, bleeding but victorious. The child is perfectly safe.");
+                        paras.Add("Suddenly, the radio crackles. It's Sarah. She survived the rubble because you tried to dig her out.");
+                        paras.Add("She guides your train to a hidden military outpost. Your mercy paid off.");
+                        paras.Add($"*** TRUE SURVIVOR ENDING! FINAL HEALTH: {playerHealth} ***");
+                    }
+                    else if (savedChild && !trustedSarah)
+                    {
+                        // ENDING 2: Bacha mehfooz, par dhoke baz mar gayi
+                        paras.Add("You collapse on the floor, bleeding but victorious. The child is safe.");
+                        paras.Add("You look back at the burning city. You left the traitor to die, but you secured the cure for humanity.");
+                        paras.Add($"*** THE CURE ENDING! FINAL HEALTH: {playerHealth} ***");
+                    }
+                    else
+                    {
+                        // ENDING 3: Tragic End (Bacha zakhmi)
+                        paras.Add("You sit in silence as the train rolls on. The child lies quietly in the corner, a fresh bite mark on his arm.");
+                        paras.Add("He was immune to the airborne strain, but a direct bite... you don't know if he will survive.");
+                        paras.Add("Humanity's last hope might be lost, despite your escape.");
+                        paras.Add($"*** TRAGIC ESCAPE ENDING! FINAL HEALTH: {playerHealth} ***");
+                    }
+
+                    StartReading(paras.ToArray());
                     return;
                 }
 
@@ -135,16 +165,13 @@ namespace Zombie_apocolypse_telltale
             }
         }
 
-        // --- Naye Helper Methods Sequence ke liye ---
-
         private void StartReading(string[] paras)
         {
-            // YEH LINE ADD KI HAI TA KE BACKGROUND COLOR FAURAN CHANGE HO
             updateStatus(playerHealth, inventory, currentChapter);
 
             chapterParagraphs = new List<string>(paras);
             currentParagraphIndex = 0;
-            isReading = true; // Reading mode ON
+            isReading = true;
             NextParagraph();
         }
 
@@ -152,28 +179,25 @@ namespace Zombie_apocolypse_telltale
         {
             if (currentParagraphIndex < chapterParagraphs.Count)
             {
-                // Agla paragraph print karein aur ek line ka gap dein
                 output(chapterParagraphs[currentParagraphIndex] + "\n");
                 currentParagraphIndex++;
 
                 if (currentParagraphIndex < chapterParagraphs.Count)
                 {
-                    // Agar aur paragraphs baqi hain, toh sirf "Continue" button show karein
                     updateOptions("Continue...", null, null, null);
                 }
                 else
                 {
-                    // Saare paragraphs khatam, reading mode OFF
                     isReading = false;
                     chapterIntroPlayed = true;
 
                     if (currentChapter == 5)
                     {
-                        NextState(); // Ending handle karne ke liye
+                        NextState();
                     }
                     else
                     {
-                        ShowChapterOptions(); // Asal choices show karein
+                        ShowChapterOptions();
                     }
                 }
             }
@@ -189,20 +213,16 @@ namespace Zombie_apocolypse_telltale
             updateStatus(playerHealth, inventory, currentChapter);
         }
 
-        // ------------------------------------------
-
         public void Choose(int option)
         {
             if (!gameRunning) return;
 
-            // Agar hum story parh rahe hain, toh button 1 ko "Continue" ke tor par use karein
             if (isReading)
             {
                 if (option == 1) NextParagraph();
-                return; // Baqi choices run na hon
+                return;
             }
 
-            // Asal game choices
             if (currentChapter == 1)
             {
                 if (option == 1)
@@ -251,17 +271,20 @@ namespace Zombie_apocolypse_telltale
             {
                 if (option == 1)
                 {
-                    output("> You waste precious time trying to dig her out. A falling beam strikes you!\n");
+                    output("> You waste precious time trying to dig her out. You show mercy to the traitor.\n");
                     int damage = rng.Next(20, 41);
                     playerHealth -= damage;
                     output($"[ You took {damage} damage! Current Health: {playerHealth} ]\n");
-                    output("> Realizing it's hopeless, you turn back.\n");
+                    output("> She manages to slip away, leaving you behind. Realizing it's hopeless, you turn back.\n");
+                    trustedSarah = true; // PLAYER NE MADAD KI
                 }
                 else if (option == 2)
                 {
                     output("> You ignore the traitor, grab the child, and sprint up the emergency ladder just as the bunker caves in!\n");
+                    output("> You hear her screams fade as the concrete seals her fate. She will remember that... if she survives.\n");
                     currentChapter = 4;
                     chapterIntroPlayed = false;
+                    trustedSarah = false; // PLAYER NE CHHOR DIYA
                 }
                 else if (option == 3) UseMedkit();
                 else if (option == 4) ShowStatus();
@@ -272,10 +295,11 @@ namespace Zombie_apocolypse_telltale
                 {
                     if (inventory.Contains("Fire Axe"))
                     {
-                        output("> You swing the Fire Axe with brutal force! You cleave through the undead.\n");
+                        output("> You swing the Fire Axe with brutal force! You cleave a path through the undead, ensuring the child gets on board safely.\n");
                         int damage = rng.Next(5, 16);
                         playerHealth -= damage;
                         output($"[ You took {damage} damage. Current Health: {playerHealth} ]\n");
+                        savedChild = true; // HATHYAR USE KIYA, BACHA SAFE HAI
                         currentChapter = 5;
                         chapterIntroPlayed = false;
                     }
@@ -287,7 +311,8 @@ namespace Zombie_apocolypse_telltale
                         output($"[ You took a massive {damage} damage! Current Health: {playerHealth} ]\n");
                         if (playerHealth > 0)
                         {
-                            output("> Barely alive, you manage to push them back just in time.\n");
+                            output("> Barely alive, you manage to push them back just in time, but the child gets bitten in the chaos.\n");
+                            savedChild = false; // HATHYAR NAHI THA, BACHA ZAKHMI HUA
                             currentChapter = 5;
                             chapterIntroPlayed = false;
                         }
@@ -295,13 +320,14 @@ namespace Zombie_apocolypse_telltale
                 }
                 else if (option == 2)
                 {
-                    output("> You scream and charge the undead with your bare fists.\n");
+                    output("> You scream and charge the undead with your bare fists. It's a desperate struggle.\n");
                     int damage = rng.Next(50, 81);
                     playerHealth -= damage;
                     output($"[ You took a brutal {damage} damage! Current Health: {playerHealth} ]\n");
                     if (playerHealth > 0)
                     {
-                        output("> By a miracle, you survive the onslaught long enough.\n");
+                        output("> By a miracle, you survive the onslaught, but in the chaos, the child is bitten before you can pull him aboard.\n");
+                        savedChild = false; // BACHA ZAKHMI HUA
                         currentChapter = 5;
                         chapterIntroPlayed = false;
                     }
@@ -310,7 +336,6 @@ namespace Zombie_apocolypse_telltale
                 else if (option == 4) ShowStatus();
             }
 
-            // Check if player died after taking damage
             if (playerHealth <= 0)
             {
                 output("*** YOUR WOUNDS WERE TOO SEVERE. YOU HAVE DIED. ***\n");
@@ -319,7 +344,6 @@ namespace Zombie_apocolypse_telltale
                 return;
             }
 
-            // Agar next chapter mein gaye hain, toh naya state load karo
             if (chapterIntroPlayed == false && gameRunning)
             {
                 NextState();
@@ -353,6 +377,77 @@ namespace Zombie_apocolypse_telltale
             else
             {
                 output("> You don't have a Medkit in your inventory!\n");
+            }
+        }
+
+        public void SaveGame()
+        {
+            try
+            {
+                var saveData = new Dictionary<string, object>
+                {
+                    { "Health", playerHealth },
+                    { "Chapter", currentChapter },
+                    { "Inventory", inventory },
+                    { "TrustedSarah", trustedSarah }, // Variables save kar rahe hain
+                    { "SavedChild", savedChild }
+                };
+
+                string jsonString = JsonSerializer.Serialize(saveData);
+                string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "savegame.json");
+                File.WriteAllText(filePath, jsonString);
+
+                output("\n[ System: Game Progress Saved Successfully! ]\n");
+            }
+            catch (Exception ex)
+            {
+                output($"\n[ System Error: Could not save game - {ex.Message} ]\n");
+            }
+        }
+
+        public bool LoadGame()
+        {
+            try
+            {
+                string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "savegame.json");
+
+                if (File.Exists(filePath))
+                {
+                    string jsonString = File.ReadAllText(filePath);
+                    var loadData = JsonSerializer.Deserialize<Dictionary<string, object>>(jsonString);
+
+                    playerHealth = int.Parse(loadData["Health"].ToString());
+                    currentChapter = int.Parse(loadData["Chapter"].ToString());
+
+                    var invElement = (JsonElement)loadData["Inventory"];
+                    inventory.Clear();
+                    foreach (var item in invElement.EnumerateArray())
+                    {
+                        inventory.Add(item.GetString());
+                    }
+
+                    // Puraani saves ko support karne ke liye extra check
+                    if (loadData.ContainsKey("TrustedSarah"))
+                        trustedSarah = bool.Parse(loadData["TrustedSarah"].ToString());
+                    if (loadData.ContainsKey("SavedChild"))
+                        savedChild = bool.Parse(loadData["SavedChild"].ToString());
+
+                    chapterIntroPlayed = false;
+                    isReading = false;
+                    gameRunning = true;
+
+                    output("\n[ System: Game Loaded Successfully! Welcome back. ]\n");
+                    updateStatus(playerHealth, inventory, currentChapter);
+                    NextState();
+
+                    return true;
+                }
+                return false;
+            }
+            catch
+            {
+                output("\n[ System Error: Corrupt save file or loading failed. ]\n");
+                return false;
             }
         }
     }

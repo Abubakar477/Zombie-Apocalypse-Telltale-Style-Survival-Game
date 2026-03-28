@@ -21,8 +21,14 @@
         private System.Windows.Forms.Label lblChapter;
         private System.Windows.Forms.PictureBox pbScene;
         private System.Windows.Forms.Button btnRestart;
-        
+
         private System.Windows.Forms.Button btnContinue;
+
+        // --- NAYE BUTTONS DECLARE KIYE HAIN ---
+        private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.Button btnLoad;
+        // --------------------------------------
+
         private System.Windows.Forms.Panel panelContent;
         private System.Windows.Forms.Panel panelStart;
         private System.Windows.Forms.Label lblTitle;
@@ -68,6 +74,12 @@
             this.pbHealth = new System.Windows.Forms.ProgressBar();
             this.btnRestart = new System.Windows.Forms.Button();
             this.btnContinue = new System.Windows.Forms.Button();
+
+            // --- NAYE BUTTONS INITIALIZE KIYE HAIN ---
+            this.btnSave = new System.Windows.Forms.Button();
+            this.btnLoad = new System.Windows.Forms.Button();
+            // -----------------------------------------
+
             this.SuspendLayout();
             // 
             // rtbOutput
@@ -141,8 +153,6 @@
             this.btnRestart.UseVisualStyleBackColor = true;
             this.btnRestart.Click += new System.EventHandler(this.btnRestart_Click);
             // 
-            
-            // 
             // btnContinue
             // 
             this.btnContinue.Location = new System.Drawing.Point(10, 5);
@@ -153,6 +163,27 @@
             this.btnContinue.UseVisualStyleBackColor = true;
             this.btnContinue.Visible = false;
             this.btnContinue.Click += new System.EventHandler(this.btnContinue_Click);
+
+            // --- NAYE BUTTONS KI PROPERTIES (Save/Load) ---
+            // btnSave
+            this.btnSave.Location = new System.Drawing.Point(10, 75);
+            this.btnSave.Name = "btnSave";
+            this.btnSave.Size = new System.Drawing.Size(140, 30);
+            this.btnSave.TabIndex = 8;
+            this.btnSave.Text = "Save Game";
+            this.btnSave.UseVisualStyleBackColor = true;
+            this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+
+            // btnLoad
+            this.btnLoad.Location = new System.Drawing.Point(160, 75);
+            this.btnLoad.Name = "btnLoad";
+            this.btnLoad.Size = new System.Drawing.Size(140, 30);
+            this.btnLoad.TabIndex = 9;
+            this.btnLoad.Text = "Load Game";
+            this.btnLoad.UseVisualStyleBackColor = true;
+            this.btnLoad.Click += new System.EventHandler(this.btnLoad_Click);
+            // ----------------------------------------------
+
             // 
             // panelOptions Controls
             // 
@@ -162,6 +193,12 @@
             this.panelOptions.Controls.Add(this.btnOption3);
             this.panelOptions.Controls.Add(this.btnOption4);
             this.panelOptions.Controls.Add(this.btnRestart);
+
+            // --- NAYE BUTTONS PANEL MEIN DAAL DIYE ---
+            this.panelOptions.Controls.Add(this.btnSave);
+            this.panelOptions.Controls.Add(this.btnLoad);
+            // -----------------------------------------
+
             // 
             // panelStatus
             // 
@@ -235,7 +272,7 @@
             this.panelStatus.Controls.Add(this.lstInventory);
             // 
             // panelContent
-            //
+            // 
             this.panelContent.Dock = System.Windows.Forms.DockStyle.Fill;
             this.panelContent.Location = new System.Drawing.Point(200, 0);
             this.panelContent.Name = "panelContent";
@@ -279,7 +316,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
-            // Add rtbOutput and options into panelMain
+            // Add rtbOutput and options into panelContent
             this.panelContent.Controls.Add(this.rtbOutput);
             this.panelContent.Controls.Add(this.panelOptions);
             this.Controls.Add(this.panelContent);
@@ -294,4 +331,3 @@
         #endregion
     }
 }
-
