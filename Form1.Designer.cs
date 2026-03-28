@@ -235,7 +235,7 @@
             this.btnStart.Size = new System.Drawing.Size(140, 40);
             this.btnStart.TabIndex = 1;
             this.btnStart.Text = "Start Game";
-            this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
+        
             // 
             // panelStatus
             // 

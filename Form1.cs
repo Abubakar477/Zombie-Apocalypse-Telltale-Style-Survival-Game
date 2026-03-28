@@ -2,13 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Drawing;
-using System.ComponentModel;
-using System.Data;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
-using System.Media; // Sound play karne ke liye library
+using System.Media;
 
 namespace Zombie_apocolypse_telltale
 {
@@ -16,90 +12,42 @@ namespace Zombie_apocolypse_telltale
     {
         private GameEngine engine;
         private readonly Dictionary<int, Image> chapterImages = new Dictionary<int, Image>();
-        private int lastChapter = 0; // 0 kar diya hai taake chapter 1 ka color/sound fauran load ho
+        private int lastChapter = 0;
+        private SoundPlayer bgMusic;
 
-        private SoundPlayer bgMusic; // Background music player
+        // --- NAYA: Custom Start Menu Panel ---
+        private Panel autoStartPanel;
 
         public Form1()
         {
             InitializeComponent();
-
-            // --- NAYA: Screen Glitch aur Flickering rokne ke liye ---
-            this.DoubleBuffered = true;
-
+            this.DoubleBuffered = true; // Screen flickering rokne ke liye
             engine = new GameEngine(AppendOutput, UpdateOptions, UpdateStatus);
         }
 
-        private int ExtractChapterNumber()
+        // --- Screen Shake Animation ---
+        private void ShakeScreen()
         {
-            var text = lblChapter.Text ?? "";
-            if (text.StartsWith("Chapter:"))
+            Point originalLocation = this.Location;
+            Random rnd = new Random();
+
+            for (int i = 0; i < 10; i++)
             {
-                var parts = text.Split(':');
-                if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out int n)) return n;
+                this.Location = new Point(originalLocation.X + rnd.Next(-15, 15), originalLocation.Y + rnd.Next(-15, 15));
+                System.Threading.Thread.Sleep(30);
+                Application.DoEvents();
             }
-            return 1;
-        }
 
-        private string ShowInputDialog(string text, string caption, string defaultValue = "")
-        {
-            string result = defaultValue;
-            using (Form prompt = new Form())
-            {
-                prompt.Width = 400;
-                prompt.Height = 150;
-                prompt.Text = caption;
-                Label textLabel = new Label() { Left = 10, Top = 10, Text = text, Width = 360 };
-                TextBox inputBox = new TextBox() { Left = 10, Top = 40, Width = 360, Text = defaultValue };
-                Button confirmation = new Button() { Text = "OK", Left = 220, Width = 70, Top = 70, DialogResult = DialogResult.OK };
-                Button cancel = new Button() { Text = "Cancel", Left = 300, Width = 70, Top = 70, DialogResult = DialogResult.Cancel };
-                confirmation.Click += (sender, e) => { prompt.Close(); };
-                prompt.Controls.Add(textLabel);
-                prompt.Controls.Add(inputBox);
-                prompt.Controls.Add(confirmation);
-                prompt.Controls.Add(cancel);
-                prompt.AcceptButton = confirmation;
-                prompt.CancelButton = cancel;
-
-                if (prompt.ShowDialog() == DialogResult.OK)
-                {
-                    result = inputBox.Text;
-                }
-            }
-            return result;
-        }
-
-        private IEnumerable<string> GetImageDirectories(string baseDir)
-        {
-            var results = new List<string>();
-            try
-            {
-                var imagesDefault = Path.Combine(baseDir, "Images");
-                if (Directory.Exists(imagesDefault)) results.Add(imagesDefault);
-
-                var subdirs = Directory.GetDirectories(baseDir);
-                foreach (var d in subdirs)
-                {
-                    var name = Path.GetFileName(d).ToLowerInvariant();
-                    if (name.Contains("image") || name.Contains("story"))
-                    {
-                        results.Add(d);
-                    }
-                }
-            }
-            catch { }
-
-            return results;
+            this.Location = originalLocation;
         }
 
         private void SetupModernUI()
         {
-            Button[] options = { btnOption1, btnOption2, btnOption3, btnOption4, btnContinue };
+            Button[] options = { btnOption1, btnOption2, btnOption3, btnOption4, btnContinue, btnSave, btnLoad, btnRestart };
 
             foreach (var btn in options)
             {
                 if (btn == null) continue;
-
                 btn.FlatStyle = FlatStyle.Flat;
                 btn.FlatAppearance.BorderSize = 1;
                 btn.FlatAppearance.BorderColor = Color.FromArgb(64, 64, 64);
@@ -112,17 +60,52 @@ namespace Zombie_apocolypse_telltale
                 btn.MouseLeave += (s, e) => { btn.BackColor = Color.FromArgb(20, 20, 20); };
             }
 
-            if (rtbOutput != null)
-            {
-                rtbOutput.BorderStyle = BorderStyle.None;
-            }
+            if (rtbOutput != null) rtbOutput.BorderStyle = BorderStyle.None;
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
             SetupModernUI();
             LoadImagesFromFolder();
-            engine.Start();
+
+            // ==========================================
+            // 100% CODE SE BANA HUA START MENU
+            // ==========================================
+            autoStartPanel = new Panel();
+            autoStartPanel.Dock = DockStyle.Fill;
+            autoStartPanel.BackColor = Color.Black;
+
+            Label lblTitle = new Label();
+            lblTitle.Text = "ZOMBIE APOCALYPSE\nSURVIVAL";
+            lblTitle.ForeColor = Color.DarkRed;
+            lblTitle.Font = new Font("Consolas", 32F, FontStyle.Bold);
+            lblTitle.AutoSize = true;
+            lblTitle.TextAlign = ContentAlignment.MiddleCenter;
+            lblTitle.Top = 80;
+            lblTitle.Left = this.Width / 2 - 250;
+
+            Button btnPlay = new Button();
+            btnPlay.Text = "START GAME";
+            btnPlay.Font = new Font("Consolas", 16F, FontStyle.Bold);
+            btnPlay.ForeColor = Color.White;
+            btnPlay.BackColor = Color.FromArgb(40, 40, 40);
+            btnPlay.FlatStyle = FlatStyle.Flat;
+            btnPlay.Size = new Size(250, 60);
+            btnPlay.Top = 250;
+            btnPlay.Left = this.Width / 2 - 130;
+            btnPlay.Cursor = Cursors.Hand;
+
+            // Start Button Click Event
+            btnPlay.Click += (s, ev) =>
+            {
+                autoStartPanel.Visible = false; // Menu hide
+                engine.Start(); // Story Start
+            };
+
+            autoStartPanel.Controls.Add(lblTitle);
+            autoStartPanel.Controls.Add(btnPlay);
+            this.Controls.Add(autoStartPanel);
+            autoStartPanel.BringToFront(); // Sab se aage le aayen
         }
 
         private void AppendOutput(string text)
@@ -136,7 +119,10 @@ namespace Zombie_apocolypse_telltale
             Color textColor = Color.White;
 
             if (text.Contains("damage") || text.Contains("DIED") || text.Contains("hopeless") || text.Contains("blood"))
+            {
                 textColor = Color.LightCoral;
+                ShakeScreen(); // Shake Effect!
+            }
             else if (text.Contains("restored") || text.Contains("SURVIVED") || text.Contains("find a") || text.Contains("Medkit"))
                 textColor = Color.LightGreen;
             else if (text.StartsWith("---") || text.StartsWith("==="))
@@ -189,38 +175,23 @@ namespace Zombie_apocolypse_telltale
 
             pbHealth.Value = Math.Max(0, Math.Min(pbHealth.Maximum, health));
             lstInventory.Items.Clear();
-            foreach (var item in inventory)
-            {
-                lstInventory.Items.Add(item);
-            }
+            foreach (var item in inventory) lstInventory.Items.Add(item);
             lblChapter.Text = $"Chapter: {chapter}";
 
             if (chapter != lastChapter)
             {
                 try
                 {
-                    // --- NAYA: Naye chapter par purani screen bilkul saaf kar dein ---
                     rtbOutput.Clear();
-
                     PlayBackgroundMusic($"chapter{chapter}.wav");
 
                     switch (chapter)
                     {
-                        case 1:
-                            rtbOutput.BackColor = Color.Black;
-                            break;
-                        case 2:
-                            rtbOutput.BackColor = Color.FromArgb(30, 30, 60);
-                            break;
-                        case 3:
-                            rtbOutput.BackColor = Color.FromArgb(50, 30, 30);
-                            break;
-                        case 4:
-                            rtbOutput.BackColor = Color.FromArgb(20, 20, 20);
-                            break;
-                        default:
-                            rtbOutput.BackColor = Color.Black;
-                            break;
+                        case 1: rtbOutput.BackColor = Color.Black; break;
+                        case 2: rtbOutput.BackColor = Color.FromArgb(30, 30, 60); break;
+                        case 3: rtbOutput.BackColor = Color.FromArgb(50, 30, 30); break;
+                        case 4: rtbOutput.BackColor = Color.FromArgb(20, 20, 20); break;
+                        default: rtbOutput.BackColor = Color.Black; break;
                     }
                 }
                 catch { }
@@ -236,37 +207,6 @@ namespace Zombie_apocolypse_telltale
                     try { previous.Dispose(); } catch { }
                 }
             }
-            else
-            {
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                var dirs = GetImageDirectories(baseDir);
-                if (dirs != null)
-                {
-                    string[] exts = new[] { "png", "jpg", "jpeg", "bmp" };
-                    foreach (var imagesDir in dirs)
-                    {
-                        foreach (var ext in exts)
-                        {
-                            string path = Path.Combine(imagesDir, $"chapter{chapter}.{ext}");
-                            if (File.Exists(path))
-                            {
-                                AddChapterImageFromFile(chapter, path);
-                                if (chapterImages.TryGetValue(chapter, out Image loaded))
-                                {
-                                    var previous = pbScene.Image;
-                                    pbScene.Image = loaded;
-                                    if (previous != null && !ReferenceEquals(previous, loaded))
-                                    {
-                                        try { previous.Dispose(); } catch { }
-                                    }
-                                }
-                                break;
-                            }
-                        }
-                        if (chapterImages.ContainsKey(chapter)) break;
-                    }
-                }
-            }
         }
 
         private void PlayBackgroundMusic(string fileName)
@@ -274,19 +214,32 @@ namespace Zombie_apocolypse_telltale
             try
             {
                 string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Sounds", fileName);
-
                 if (File.Exists(path))
                 {
-                    if (bgMusic != null)
-                    {
-                        bgMusic.Stop();
-                        bgMusic.Dispose();
-                    }
+                    if (bgMusic != null) { bgMusic.Stop(); bgMusic.Dispose(); }
                     bgMusic = new SoundPlayer(path);
                     bgMusic.PlayLooping();
                 }
             }
-            catch { /* File na mile toh game crash nahi hogi */ }
+            catch { }
+        }
+
+        private IEnumerable<string> GetImageDirectories(string baseDir)
+        {
+            var results = new List<string>();
+            try
+            {
+                var imagesDefault = Path.Combine(baseDir, "Images");
+                if (Directory.Exists(imagesDefault)) results.Add(imagesDefault);
+                var subdirs = Directory.GetDirectories(baseDir);
+                foreach (var d in subdirs)
+                {
+                    var name = Path.GetFileName(d).ToLowerInvariant();
+                    if (name.Contains("image") || name.Contains("story")) results.Add(d);
+                }
+            }
+            catch { }
+            return results;
         }
 
         private void LoadImagesFromFolder()
@@ -300,35 +253,13 @@ namespace Zombie_apocolypse_telltale
                 {
                     if (!Directory.Exists(imagesDir)) continue;
                     var files = Directory.GetFiles(imagesDir);
-
-                    var remaining = new List<string>();
-                    foreach (var f in files.OrderBy(p => p))
+                    foreach (var f in files)
                     {
                         var name = Path.GetFileNameWithoutExtension(f).ToLowerInvariant();
-                        if (name.StartsWith("chapter"))
+                        if (name.StartsWith("chapter") && int.TryParse(name.Substring(7), out int chap))
                         {
-                            string numPart = name.Substring("chapter".Length);
-                            if (int.TryParse(numPart, out int chap) && chap > 0)
-                            {
-                                AddChapterImageFromFile(chap, f);
-                                continue;
-                            }
+                            AddChapterImageFromFile(chap, f);
                         }
-                        remaining.Add(f);
-                    }
-
-                    int assign = 1;
-                    if (chapterImages.Count > 0)
-                    {
-                        var used = new HashSet<int>(chapterImages.Keys);
-                        while (used.Contains(assign)) assign++;
-                    }
-
-                    foreach (var f in remaining)
-                    {
-                        while (chapterImages.ContainsKey(assign)) assign++;
-                        AddChapterImageFromFile(assign, f);
-                        assign++;
                     }
                 }
             }
@@ -343,15 +274,8 @@ namespace Zombie_apocolypse_telltale
                 using (var temp = Image.FromFile(filePath))
                 {
                     var bmp = new Bitmap(temp);
-                    if (chapterImages.ContainsKey(chapter))
-                    {
-                        try { chapterImages[chapter].Dispose(); } catch { }
-                        chapterImages[chapter] = bmp;
-                    }
-                    else
-                    {
-                        chapterImages.Add(chapter, bmp);
-                    }
+                    if (chapterImages.ContainsKey(chapter)) chapterImages[chapter] = bmp;
+                    else chapterImages.Add(chapter, bmp);
                 }
             }
             catch { }
@@ -364,44 +288,32 @@ namespace Zombie_apocolypse_telltale
             lstInventory.Items.Clear();
             pbHealth.Value = pbHealth.Maximum;
             if (bgMusic != null) { bgMusic.Stop(); }
+            if (autoStartPanel != null) { autoStartPanel.Visible = false; }
             engine.Start();
         }
 
-        private void btnOption1_Click(object sender, EventArgs e) { engine.Choose(1); }
-        private void btnOption2_Click(object sender, EventArgs e) { engine.Choose(2); }
-        private void btnOption3_Click(object sender, EventArgs e) { engine.Choose(3); }
-        private void btnOption4_Click(object sender, EventArgs e) { engine.Choose(4); }
-
-        private void btnContinue_Click(object sender, EventArgs e)
-        {
-            try { btnContinue.Visible = false; } catch { }
-            try { engine.NextParagraph(); } catch { }
-        }
-
-        private void btnStart_Click(object sender, EventArgs e)
-        {
-            try { panelStart.Visible = false; } catch { }
-            try { panelContent.Visible = true; } catch { }
-            try { engine.Start(); } catch { }
-        }
-
-        // --- NAYA: Save aur Load ke button functions ---
-
-        // Is method ko apne UI (Designer) mein mojood "Save" button ke Click event se link karein
-        private void btnSave_Click(object sender, EventArgs e)
-        {
-            engine.SaveGame();
-        }
-
-        // Is method ko apne UI (Designer) mein mojood "Load" button ke Click event se link karein
         private void btnLoad_Click(object sender, EventArgs e)
         {
-            rtbOutput.Clear(); // Screen saaf kar ke load shuru karein
-
+            rtbOutput.Clear();
             if (!engine.LoadGame())
             {
                 MessageBox.Show("No saved game found!", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+            else
+            {
+                if (autoStartPanel != null) autoStartPanel.Visible = false;
+            }
+        }
+
+        private void btnSave_Click(object sender, EventArgs e) { engine.SaveGame(); }
+        private void btnOption1_Click(object sender, EventArgs e) { engine.Choose(1); }
+        private void btnOption2_Click(object sender, EventArgs e) { engine.Choose(2); }
+        private void btnOption3_Click(object sender, EventArgs e) { engine.Choose(3); }
+        private void btnOption4_Click(object sender, EventArgs e) { engine.Choose(4); }
+        private void btnContinue_Click(object sender, EventArgs e)
+        {
+            try { btnContinue.Visible = false; } catch { }
+            try { engine.NextParagraph(); } catch { }
         }
     }
 }

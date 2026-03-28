@@ -14,10 +14,9 @@ namespace Zombie_apocolypse_telltale
         private bool chapterIntroPlayed = false;
         private Random rng = new Random();
 
-        // --- NAYA: Karma aur Consequences ke variables ---
+        // Karma aur Consequences variables
         private bool trustedSarah = false;
         private bool savedChild = false;
-        // -------------------------------------------------
 
         private List<string> chapterParagraphs = new List<string>();
         private int currentParagraphIndex = 0;
@@ -123,7 +122,6 @@ namespace Zombie_apocolypse_telltale
             {
                 if (!chapterIntroPlayed)
                 {
-                    // --- NAYA: Multiple Endings Logic ---
                     var paras = new List<string>
                     {
                         "==================================================",
@@ -133,7 +131,6 @@ namespace Zombie_apocolypse_telltale
 
                     if (savedChild && trustedSarah)
                     {
-                        // ENDING 1: Sab theek ho gaya
                         paras.Add("You collapse on the floor, bleeding but victorious. The child is perfectly safe.");
                         paras.Add("Suddenly, the radio crackles. It's Sarah. She survived the rubble because you tried to dig her out.");
                         paras.Add("She guides your train to a hidden military outpost. Your mercy paid off.");
@@ -141,14 +138,12 @@ namespace Zombie_apocolypse_telltale
                     }
                     else if (savedChild && !trustedSarah)
                     {
-                        // ENDING 2: Bacha mehfooz, par dhoke baz mar gayi
                         paras.Add("You collapse on the floor, bleeding but victorious. The child is safe.");
                         paras.Add("You look back at the burning city. You left the traitor to die, but you secured the cure for humanity.");
                         paras.Add($"*** THE CURE ENDING! FINAL HEALTH: {playerHealth} ***");
                     }
                     else
                     {
-                        // ENDING 3: Tragic End (Bacha zakhmi)
                         paras.Add("You sit in silence as the train rolls on. The child lies quietly in the corner, a fresh bite mark on his arm.");
                         paras.Add("He was immune to the airborne strain, but a direct bite... you don't know if he will survive.");
                         paras.Add("Humanity's last hope might be lost, despite your escape.");
@@ -168,7 +163,6 @@ namespace Zombie_apocolypse_telltale
         private void StartReading(string[] paras)
         {
             updateStatus(playerHealth, inventory, currentChapter);
-
             chapterParagraphs = new List<string>(paras);
             currentParagraphIndex = 0;
             isReading = true;
@@ -191,14 +185,8 @@ namespace Zombie_apocolypse_telltale
                     isReading = false;
                     chapterIntroPlayed = true;
 
-                    if (currentChapter == 5)
-                    {
-                        NextState();
-                    }
-                    else
-                    {
-                        ShowChapterOptions();
-                    }
+                    if (currentChapter == 5) NextState();
+                    else ShowChapterOptions();
                 }
             }
         }
@@ -232,10 +220,7 @@ namespace Zombie_apocolypse_telltale
                         output("> You quickly search the body and find a heavy Fire Axe!\n");
                         inventory.Add("Fire Axe");
                     }
-                    else
-                    {
-                        output("> You already searched here. There's nothing left.\n");
-                    }
+                    else output("> You already searched here. There's nothing left.\n");
                 }
                 else if (option == 2)
                 {
@@ -254,10 +239,7 @@ namespace Zombie_apocolypse_telltale
                         output("> You find a First-Aid Medkit hidden in a cabinet.\n");
                         inventory.Add("Medkit");
                     }
-                    else
-                    {
-                        output("> You have already gathered all useful supplies here.\n");
-                    }
+                    else output("> You have already gathered all useful supplies here.\n");
                 }
                 else if (option == 2)
                 {
@@ -276,7 +258,7 @@ namespace Zombie_apocolypse_telltale
                     playerHealth -= damage;
                     output($"[ You took {damage} damage! Current Health: {playerHealth} ]\n");
                     output("> She manages to slip away, leaving you behind. Realizing it's hopeless, you turn back.\n");
-                    trustedSarah = true; // PLAYER NE MADAD KI
+                    trustedSarah = true;
                 }
                 else if (option == 2)
                 {
@@ -284,7 +266,7 @@ namespace Zombie_apocolypse_telltale
                     output("> You hear her screams fade as the concrete seals her fate. She will remember that... if she survives.\n");
                     currentChapter = 4;
                     chapterIntroPlayed = false;
-                    trustedSarah = false; // PLAYER NE CHHOR DIYA
+                    trustedSarah = false;
                 }
                 else if (option == 3) UseMedkit();
                 else if (option == 4) ShowStatus();
@@ -299,7 +281,7 @@ namespace Zombie_apocolypse_telltale
                         int damage = rng.Next(5, 16);
                         playerHealth -= damage;
                         output($"[ You took {damage} damage. Current Health: {playerHealth} ]\n");
-                        savedChild = true; // HATHYAR USE KIYA, BACHA SAFE HAI
+                        savedChild = true;
                         currentChapter = 5;
                         chapterIntroPlayed = false;
                     }
@@ -312,7 +294,7 @@ namespace Zombie_apocolypse_telltale
                         if (playerHealth > 0)
                         {
                             output("> Barely alive, you manage to push them back just in time, but the child gets bitten in the chaos.\n");
-                            savedChild = false; // HATHYAR NAHI THA, BACHA ZAKHMI HUA
+                            savedChild = false;
                             currentChapter = 5;
                             chapterIntroPlayed = false;
                         }
@@ -327,7 +309,7 @@ namespace Zombie_apocolypse_telltale
                     if (playerHealth > 0)
                     {
                         output("> By a miracle, you survive the onslaught, but in the chaos, the child is bitten before you can pull him aboard.\n");
-                        savedChild = false; // BACHA ZAKHMI HUA
+                        savedChild = false;
                         currentChapter = 5;
                         chapterIntroPlayed = false;
                     }
@@ -344,10 +326,7 @@ namespace Zombie_apocolypse_telltale
                 return;
             }
 
-            if (chapterIntroPlayed == false && gameRunning)
-            {
-                NextState();
-            }
+            if (chapterIntroPlayed == false && gameRunning) NextState();
         }
 
         private void ShowStatus()
@@ -389,7 +368,7 @@ namespace Zombie_apocolypse_telltale
                     { "Health", playerHealth },
                     { "Chapter", currentChapter },
                     { "Inventory", inventory },
-                    { "TrustedSarah", trustedSarah }, // Variables save kar rahe hain
+                    { "TrustedSarah", trustedSarah },
                     { "SavedChild", savedChild }
                 };
 
@@ -421,16 +400,10 @@ namespace Zombie_apocolypse_telltale
 
                     var invElement = (JsonElement)loadData["Inventory"];
                     inventory.Clear();
-                    foreach (var item in invElement.EnumerateArray())
-                    {
-                        inventory.Add(item.GetString());
-                    }
+                    foreach (var item in invElement.EnumerateArray()) inventory.Add(item.GetString());
 
-                    // Puraani saves ko support karne ke liye extra check
-                    if (loadData.ContainsKey("TrustedSarah"))
-                        trustedSarah = bool.Parse(loadData["TrustedSarah"].ToString());
-                    if (loadData.ContainsKey("SavedChild"))
-                        savedChild = bool.Parse(loadData["SavedChild"].ToString());
+                    if (loadData.ContainsKey("TrustedSarah")) trustedSarah = bool.Parse(loadData["TrustedSarah"].ToString());
+                    if (loadData.ContainsKey("SavedChild")) savedChild = bool.Parse(loadData["SavedChild"].ToString());
 
                     chapterIntroPlayed = false;
                     isReading = false;
