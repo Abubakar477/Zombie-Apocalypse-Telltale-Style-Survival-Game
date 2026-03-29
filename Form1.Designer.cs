@@ -106,6 +106,7 @@
             this.rtbOutput.Size = new System.Drawing.Size(600, 340);
             this.rtbOutput.TabIndex = 0;
             this.rtbOutput.Text = "";
+            this.rtbOutput.TextChanged += new System.EventHandler(this.rtbOutput_TextChanged);
             // 
             // panelOptions
             // 
@@ -235,7 +236,6 @@
             this.btnStart.Size = new System.Drawing.Size(140, 40);
             this.btnStart.TabIndex = 1;
             this.btnStart.Text = "Start Game";
-        
             // 
             // panelStatus
             // 
