@@ -19,6 +19,24 @@ namespace Zombie_apocolypse_telltale
         public int Chapter { get; set; }
     }
 
+    public class SaveData
+    {
+        public int Health { get; set; }
+        public int Hunger { get; set; }
+        public int Thirst { get; set; }
+        public int Stamina { get; set; }
+        public bool IsBleeding { get; set; }
+        public bool IsInfected { get; set; }
+        public List<string> Inventory { get; set; }
+        public Dictionary<string, int> Components { get; set; }
+        public Dictionary<string, int> WeaponDurability { get; set; }
+        public int Chapter { get; set; }
+        public bool ChapterIntroPlayed { get; set; }
+        public bool TrustedSarah { get; set; }
+        public bool SavedChild { get; set; }
+        public bool GameRunning { get; set; }
+    }
+
     class GameEngine
     {
         private int playerHealth = 100;
@@ -28,7 +46,7 @@ namespace Zombie_apocolypse_telltale
         private bool isBleeding = false;
         private bool isInfected = false;
 
-        private List<string> inventory = new List<string>();
+        private List<string> inventory = new List<string> { "Food Ration", "Water Bottle" };
         private Dictionary<string, int> components = new Dictionary<string, int>();
         private Dictionary<string, int> weaponDurability = new Dictionary<string, int>();
 
@@ -277,13 +295,20 @@ namespace Zombie_apocolypse_telltale
             }
 
             int chance = rng.Next(1, 101);
-            if (chance <= 50)
+            if (chance <= 40)
             {
                 string[] parts = { "Rags", "Alcohol", "Blades", "Scrap", "Empty Bottle" };
                 string part1 = parts[rng.Next(parts.Length)];
                 string part2 = parts[rng.Next(parts.Length)];
                 AddComponent(part1);
                 if (rng.Next(100) > 50) AddComponent(part2);
+            }
+            else if (chance <= 55)
+            {
+                string[] loot = { "Food Ration", "Water Bottle", "Bandage" };
+                string item = loot[rng.Next(loot.Length)];
+                output($"> You found a {item}!\n");
+                inventory.Add(item);
             }
             else if (chance <= 65 && !weaponDurability.ContainsKey("Pipe"))
             {
@@ -549,7 +574,75 @@ namespace Zombie_apocolypse_telltale
             output("> Currently holding no consumable items that you can use right now.\n");
         }
 
-        public void SaveGame() { /* Save Logic same as before */ }
-        public bool LoadGame() { return false; /* Load Logic same as before */ }
+        public void SaveGame() 
+        { 
+            try
+            {
+                var data = new SaveData
+                {
+                    Health = playerHealth,
+                    Hunger = playerHunger,
+                    Thirst = playerThirst,
+                    Stamina = playerStamina,
+                    IsBleeding = isBleeding,
+                    IsInfected = isInfected,
+                    Inventory = new List<string>(inventory),
+                    Components = new Dictionary<string, int>(components),
+                    WeaponDurability = new Dictionary<string, int>(weaponDurability),
+                    Chapter = currentChapter,
+                    ChapterIntroPlayed = chapterIntroPlayed,
+                    TrustedSarah = trustedSarah,
+                    SavedChild = savedChild,
+                    GameRunning = gameRunning
+                };
+                string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText("savegame.json", json);
+                output("\n[ GAME SAVED SUCCESSFULLY ]\n");
+            }
+            catch (Exception ex)
+            {
+                output($"\n[ ERROR SAVING GAME: {ex.Message} ]\n");
+            }
+        }
+
+        public bool LoadGame() 
+        { 
+            try
+            {
+                if (!File.Exists("savegame.json")) return false;
+
+                string json = File.ReadAllText("savegame.json");
+                var data = JsonSerializer.Deserialize<SaveData>(json);
+
+                if (data != null)
+                {
+                    playerHealth = data.Health;
+                    playerHunger = data.Hunger;
+                    playerThirst = data.Thirst;
+                    playerStamina = data.Stamina;
+                    isBleeding = data.IsBleeding;
+                    isInfected = data.IsInfected;
+                    inventory = data.Inventory ?? new List<string>();
+                    components = data.Components ?? new Dictionary<string, int>();
+                    weaponDurability = data.WeaponDurability ?? new Dictionary<string, int>();
+                    currentChapter = data.Chapter;
+                    chapterIntroPlayed = data.ChapterIntroPlayed;
+                    trustedSarah = data.TrustedSarah;
+                    savedChild = data.SavedChild;
+                    gameRunning = data.GameRunning;
+
+                    output("\n[ GAME LOADED SUCCESSFULLY ]\n");
+                    PushStatusUpdate();
+                    NextState();
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                output($"\n[ ERROR LOADING GAME: {ex.Message} ]\n");
+                return false;
+            }
+        }
     }
 }
