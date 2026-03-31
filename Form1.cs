@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using System.Media;
+using System.Threading.Tasks;
 using System.Media;
 using System.Reflection;
 
@@ -20,6 +22,13 @@ namespace Zombie_apocolypse_telltale
 
         private Label lblHealthHeader;
         private Label lblInventoryHeader;
+        private Label lblHungerHeader;
+        private ProgressBar pbHunger;
+        private Label lblThirstHeader;
+        private ProgressBar pbThirst;
+        private Label lblStaminaHeader;
+        private ProgressBar pbStamina;
+        private Label lblStatusEffects;
 
         public Form1()
         {
@@ -79,6 +88,21 @@ namespace Zombie_apocolypse_telltale
             this.Controls.Add(lblHealthHeader);
             lblHealthHeader.BringToFront();
 
+            lblHungerHeader = new Label() { Text = "HUNGER", ForeColor = Color.LightYellow, Font = new Font("Consolas", 10F, FontStyle.Bold), BackColor = Color.FromArgb(150, 0, 0, 0), AutoSize = true };
+            this.Controls.Add(lblHungerHeader); lblHungerHeader.BringToFront();
+            pbHunger = new ProgressBar(); this.Controls.Add(pbHunger); pbHunger.BringToFront();
+
+            lblThirstHeader = new Label() { Text = "THIRST", ForeColor = Color.LightSkyBlue, Font = new Font("Consolas", 10F, FontStyle.Bold), BackColor = Color.FromArgb(150, 0, 0, 0), AutoSize = true };
+            this.Controls.Add(lblThirstHeader); lblThirstHeader.BringToFront();
+            pbThirst = new ProgressBar(); this.Controls.Add(pbThirst); pbThirst.BringToFront();
+
+            lblStaminaHeader = new Label() { Text = "STAMINA", ForeColor = Color.Orange, Font = new Font("Consolas", 10F, FontStyle.Bold), BackColor = Color.FromArgb(150, 0, 0, 0), AutoSize = true };
+            this.Controls.Add(lblStaminaHeader); lblStaminaHeader.BringToFront();
+            pbStamina = new ProgressBar(); this.Controls.Add(pbStamina); pbStamina.BringToFront();
+
+            lblStatusEffects = new Label() { Text = "", ForeColor = Color.Red, Font = new Font("Consolas", 12F, FontStyle.Bold), BackColor = Color.FromArgb(150, 0, 0, 0), AutoSize = true };
+            this.Controls.Add(lblStatusEffects); lblStatusEffects.BringToFront();
+
             lblInventoryHeader = new Label() { Text = "INVENTORY", ForeColor = Color.LightGreen, Font = new Font("Consolas", 10F, FontStyle.Bold), BackColor = Color.FromArgb(150, 0, 0, 0), AutoSize = true };
             this.Controls.Add(lblInventoryHeader);
             lblInventoryHeader.BringToFront();
@@ -110,6 +134,20 @@ namespace Zombie_apocolypse_telltale
                 btn.Font = new Font("Consolas", 9F, FontStyle.Bold);
                 btn.Cursor = Cursors.Hand;
             }
+            
+            // Add custom Craft button
+            Button btnCraft = new Button();
+            btnCraft.Name = "btnCraft";
+            btnCraft.Text = "CRAFTING";
+            btnCraft.Parent = bottomBox;
+            btnCraft.FlatStyle = FlatStyle.Flat;
+            btnCraft.BackColor = Color.DarkGoldenrod;
+            btnCraft.ForeColor = Color.White;
+            btnCraft.Font = new Font("Consolas", 9F, FontStyle.Bold);
+            btnCraft.Cursor = Cursors.Hand;
+            btnCraft.Click += BtnCraft_Click;
+            this.Controls.Add(btnCraft);
+            btnCraft.BringToFront();
 
             if (rtbOutput != null)
             {
@@ -138,6 +176,13 @@ namespace Zombie_apocolypse_telltale
             if (pbHealth != null) pbHealth.Visible = false;
             if (lstInventory != null) lstInventory.Visible = false;
             if (lblChapter != null) lblChapter.Visible = false;
+            if (lblHungerHeader != null) lblHungerHeader.Visible = false;
+            if (pbHunger != null) pbHunger.Visible = false;
+            if (lblThirstHeader != null) lblThirstHeader.Visible = false;
+            if (pbThirst != null) pbThirst.Visible = false;
+            if (lblStaminaHeader != null) lblStaminaHeader.Visible = false;
+            if (pbStamina != null) pbStamina.Visible = false;
+            if (lblStatusEffects != null) lblStatusEffects.Visible = false;
         }
 
         private void Form1_Load(object sender, EventArgs e)
@@ -188,6 +233,9 @@ namespace Zombie_apocolypse_telltale
                 if (btnSave != null) btnSave.Bounds = new Rectangle(w - 270, sysBtnY, 80, 30);
                 if (btnLoad != null) btnLoad.Bounds = new Rectangle(w - 180, sysBtnY, 80, 30);
                 if (btnRestart != null) btnRestart.Bounds = new Rectangle(w - 90, sysBtnY, 80, 30);
+                
+                Button btnCraft = this.Controls.Find("btnCraft", true).FirstOrDefault() as Button;
+                if (btnCraft != null) btnCraft.Bounds = new Rectangle(w - 360, sysBtnY, 80, 30);
 
                 int currentY = 20;
                 int leftPad = 20; 
@@ -200,35 +248,50 @@ namespace Zombie_apocolypse_telltale
                     currentY += 40; 
                 }
 
+                if (lblStatusEffects != null)
+                {
+                    lblStatusEffects.Left = leftPad;
+                    lblStatusEffects.Top = currentY;
+                    currentY += 25; 
+                }
+
                 if (lblHealthHeader != null)
                 {
                     lblHealthHeader.Left = leftPad;
                     lblHealthHeader.Top = currentY;
-                    currentY += 25; 
+                    currentY += 20; 
                 }
-
                 if (pbHealth != null)
                 {
                     pbHealth.Left = leftPad;
                     pbHealth.Top = currentY;
-                    pbHealth.Width = 200;
-                    pbHealth.Height = 20;
-                    currentY += 40; 
+                    pbHealth.Width = 150;
+                    pbHealth.Height = 15;
+                    currentY += 25; 
                 }
+
+                if (lblHungerHeader != null) { lblHungerHeader.Left = leftPad; lblHungerHeader.Top = currentY; currentY += 20; }
+                if (pbHunger != null) { pbHunger.Left = leftPad; pbHunger.Top = currentY; pbHunger.Width = 150; pbHunger.Height = 15; currentY += 25; }
+
+                if (lblThirstHeader != null) { lblThirstHeader.Left = leftPad; lblThirstHeader.Top = currentY; currentY += 20; }
+                if (pbThirst != null) { pbThirst.Left = leftPad; pbThirst.Top = currentY; pbThirst.Width = 150; pbThirst.Height = 15; currentY += 25; }
+
+                if (lblStaminaHeader != null) { lblStaminaHeader.Left = leftPad; lblStaminaHeader.Top = currentY; currentY += 20; }
+                if (pbStamina != null) { pbStamina.Left = leftPad; pbStamina.Top = currentY; pbStamina.Width = 150; pbStamina.Height = 15; currentY += 25; }
 
                 if (lblInventoryHeader != null)
                 {
                     lblInventoryHeader.Left = leftPad;
                     lblInventoryHeader.Top = currentY;
-                    currentY += 25; 
+                    currentY += 20; 
                 }
 
                 if (lstInventory != null)
                 {
                     lstInventory.Left = leftPad;
                     lstInventory.Top = currentY;
-                    lstInventory.Width = 200;
-                    lstInventory.Height = 150; 
+                    lstInventory.Width = 150;
+                    lstInventory.Height = 120; 
                 }
 
                 if (bottomBox != null) bottomBox.BringToFront();
@@ -265,6 +328,7 @@ namespace Zombie_apocolypse_telltale
             lblTitle.AutoSize = true;
             lblTitle.TextAlign = ContentAlignment.MiddleCenter;
             lblTitle.BackColor = Color.Transparent;
+            lblTitle.Text = "";
 
             Button btnPlay = new Button();
             btnPlay.Text = "START GAME";
@@ -274,6 +338,10 @@ namespace Zombie_apocolypse_telltale
             btnPlay.FlatStyle = FlatStyle.Flat;
             btnPlay.Size = new Size(250, 60);
             btnPlay.Cursor = Cursors.Hand;
+            btnPlay.Visible = false;
+
+            // Cool Typewriter Intro
+            _ = PlayIntroAsync(lblTitle, "ZOMBIE APOCALYPSE\nSURVIVAL", btnPlay);
 
             btnPlay.Click += (s, ev) => {
                 autoStartPanel.Visible = false;
@@ -284,6 +352,13 @@ namespace Zombie_apocolypse_telltale
                 if (pbHealth != null) pbHealth.Visible = true;
                 if (lstInventory != null) lstInventory.Visible = true;
                 if (lblChapter != null) lblChapter.Visible = true;
+                if (lblHungerHeader != null) lblHungerHeader.Visible = true;
+                if (pbHunger != null) pbHunger.Visible = true;
+                if (lblThirstHeader != null) lblThirstHeader.Visible = true;
+                if (pbThirst != null) pbThirst.Visible = true;
+                if (lblStaminaHeader != null) lblStaminaHeader.Visible = true;
+                if (pbStamina != null) pbStamina.Visible = true;
+                if (lblStatusEffects != null) lblStatusEffects.Visible = true;
 
                 engine.Start();
             };
@@ -299,6 +374,17 @@ namespace Zombie_apocolypse_telltale
                 btnPlay.Left = (autoStartPanel.Width - btnPlay.Width) / 2;
                 btnPlay.Top = (autoStartPanel.Height / 2) + 40;
             };
+        }
+
+        private async Task PlayIntroAsync(Label lblTitle, string text, Button btnPlay)
+        {
+            foreach (char c in text)
+            {
+                lblTitle.Text += c;
+                await Task.Delay(50); // Speed of typewriter
+            }
+            await Task.Delay(500);
+            btnPlay.Visible = true;
         }
 
         private void AppendOutput(string text)
@@ -325,24 +411,45 @@ namespace Zombie_apocolypse_telltale
             rtbOutput.ScrollToCaret();
         }
 
-        private void UpdateStatus(int health, List<string> inventory, int chapter)
+        private void UpdateStatus(GameStatus status)
         {
-            if (InvokeRequired) { Invoke(new Action(() => UpdateStatus(health, inventory, chapter))); return; }
+            if (InvokeRequired) { Invoke(new Action(() => UpdateStatus(status))); return; }
 
-            pbHealth.Value = Math.Max(0, Math.Min(100, health));
+            pbHealth.Value = Math.Max(0, Math.Min(100, status.Health));
+            if (pbHunger != null) pbHunger.Value = Math.Max(0, Math.Min(100, status.Hunger));
+            if (pbThirst != null) pbThirst.Value = Math.Max(0, Math.Min(100, status.Thirst));
+            if (pbStamina != null) pbStamina.Value = Math.Max(0, Math.Min(100, status.Stamina));
+
             lstInventory.Items.Clear();
-            foreach (var item in inventory) lstInventory.Items.Add(item);
+            foreach (var kvp in status.Components)
+            {
+                lstInventory.Items.Add($"{kvp.Key} x{kvp.Value}");
+            }
+            foreach (var kvp in status.WeaponDurability)
+            {
+                lstInventory.Items.Add($"{kvp.Key} [{kvp.Value}]");
+            }
+            // Add normal inventory items (Medkit, etc)
+            foreach (var item in status.Inventory)
+            {
+                lstInventory.Items.Add(item);
+            }
 
-            if (lblChapter != null) lblChapter.Text = $"Chapter: {chapter}";
+            if (lblChapter != null) lblChapter.Text = $"Chapter: {status.Chapter}";
 
-            if (chapter != lastChapter)
+            string fx = "";
+            if (status.IsBleeding) fx += "[BLEEDING] ";
+            if (status.IsInfected) fx += "[INFECTED]";
+            lblStatusEffects.Text = fx;
+
+            if (status.Chapter != lastChapter)
             {
                 rtbOutput.Clear();
-                PlayBackgroundMusic($"chapter{chapter}.wav");
+                PlayBackgroundMusic($"chapter{status.Chapter}.wav");
 
                 try
                 {
-                    string chapImgPath = GetImagePath($"chapter{chapter}");
+                    string chapImgPath = GetImagePath($"chapter{status.Chapter}");
                     if (chapImgPath != null)
                     {
                         this.BackgroundImage = Image.FromFile(chapImgPath);
@@ -356,7 +463,7 @@ namespace Zombie_apocolypse_telltale
                 }
                 catch { }
 
-                lastChapter = chapter;
+                lastChapter = status.Chapter;
             }
         }
 
@@ -392,6 +499,13 @@ namespace Zombie_apocolypse_telltale
             if (lblChapter != null) lblChapter.Visible = false;
             if (lblHealthHeader != null) lblHealthHeader.Visible = false;
             if (lblInventoryHeader != null) lblInventoryHeader.Visible = false;
+            if (lblHungerHeader != null) lblHungerHeader.Visible = false;
+            if (pbHunger != null) pbHunger.Visible = false;
+            if (lblThirstHeader != null) lblThirstHeader.Visible = false;
+            if (pbThirst != null) pbThirst.Visible = false;
+            if (lblStaminaHeader != null) lblStaminaHeader.Visible = false;
+            if (pbStamina != null) pbStamina.Visible = false;
+            if (lblStatusEffects != null) lblStatusEffects.Visible = false;
 
             if (autoStartPanel != null) autoStartPanel.Visible = true;
         }
@@ -417,6 +531,23 @@ namespace Zombie_apocolypse_telltale
         }
 
         private void btnSave_Click(object sender, EventArgs e) { engine.SaveGame(); }
+        
+        private void BtnCraft_Click(object sender, EventArgs e)
+        {
+            if (engine.CurrentChapter() == 5 || pbHealth.Value <= 0) return;
+            // Provide a quick craft shortcut
+            DialogResult res = MessageBox.Show(
+                "Select what to craft:\n\n" +
+                "YES: [Medkit] (Alcohol + Rags)\n\n" +
+                "NO: [Shiv] (Blades + Scrap)\n\n" +
+                "CANCEL: [Molotov] (Alcohol + Rags + Empty Bottle)", 
+                "Crafting Menu", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Information);
+                
+            if (res == DialogResult.Yes) engine.CraftItem("Medkit");
+            else if (res == DialogResult.No) engine.CraftItem("Shiv");
+            else if (res == DialogResult.Cancel) engine.CraftItem("Molotov");
+        }
+
         private void btnOption1_Click(object sender, EventArgs e) { engine.Choose(1); }
         private void btnOption2_Click(object sender, EventArgs e) { engine.Choose(2); }
         private void btnOption3_Click(object sender, EventArgs e) { engine.Choose(3); }

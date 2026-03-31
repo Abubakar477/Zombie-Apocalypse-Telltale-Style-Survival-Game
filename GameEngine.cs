@@ -1,14 +1,37 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 
 namespace Zombie_apocolypse_telltale
 {
+    public class GameStatus
+    {
+        public int Health { get; set; }
+        public int Hunger { get; set; }
+        public int Thirst { get; set; }
+        public int Stamina { get; set; }
+        public bool IsBleeding { get; set; }
+        public bool IsInfected { get; set; }
+        public List<string> Inventory { get; set; }
+        public Dictionary<string, int> Components { get; set; } = new Dictionary<string, int>();
+        public Dictionary<string, int> WeaponDurability { get; set; } = new Dictionary<string, int>();
+        public int Chapter { get; set; }
+    }
+
     class GameEngine
     {
         private int playerHealth = 100;
+        private int playerHunger = 100;
+        private int playerThirst = 100;
+        private int playerStamina = 100;
+        private bool isBleeding = false;
+        private bool isInfected = false;
+
         private List<string> inventory = new List<string>();
+        private Dictionary<string, int> components = new Dictionary<string, int>();
+        private Dictionary<string, int> weaponDurability = new Dictionary<string, int>();
+
         private int currentChapter = 1;
         private bool gameRunning = true;
         private bool chapterIntroPlayed = false;
@@ -23,13 +46,60 @@ namespace Zombie_apocolypse_telltale
 
         private readonly Action<string> output;
         private readonly Action<string, string, string, string> updateOptions;
-        private readonly Action<int, List<string>, int> updateStatus;
+        private readonly Action<GameStatus> updateStatus;
 
-        public GameEngine(Action<string> outputCallback, Action<string, string, string, string> optionsCallback, Action<int, List<string>, int> statusCallback)
+        public GameEngine(Action<string> outputCallback, Action<string, string, string, string> optionsCallback, Action<GameStatus> statusCallback)
         {
             output = outputCallback ?? throw new ArgumentNullException(nameof(outputCallback));
             updateOptions = optionsCallback ?? throw new ArgumentNullException(nameof(optionsCallback));
             updateStatus = statusCallback ?? throw new ArgumentNullException(nameof(statusCallback));
+        }
+
+        private GameStatus GetStatus()
+        {
+            return new GameStatus
+            {
+                Health = playerHealth,
+                Hunger = playerHunger,
+                Thirst = playerThirst,
+                Stamina = playerStamina,
+                IsBleeding = isBleeding,
+                IsInfected = isInfected,
+                Inventory = new List<string>(inventory),
+                Components = new Dictionary<string, int>(components),
+                WeaponDurability = new Dictionary<string, int>(weaponDurability),
+                Chapter = currentChapter
+            };
+        }
+
+        private void DrainStats(int hungerDrain, int thirstDrain, int staminaDrain)
+        {
+            playerHunger = Math.Max(0, playerHunger - hungerDrain);
+            playerThirst = Math.Max(0, playerThirst - thirstDrain);
+            playerStamina = Math.Max(0, playerStamina - staminaDrain);
+        }
+
+        private void ProcessTurnEffects()
+        {
+            if (playerHunger == 0) playerHealth -= 5;
+            if (playerThirst == 0) playerHealth -= 10;
+            if (isBleeding)
+            {
+                playerHealth -= 8;
+                output("[ BLEEDING: You lose 8 health! ]");
+            }
+            if (isInfected)
+            {
+                playerHealth -= 15;
+                output("[ INFECTED: The infection spreads... You lose 15 health! ]");
+            }
+            // Slowly recover stamina over turns
+            playerStamina = Math.Min(100, playerStamina + 10);
+        }
+
+        private void PushStatusUpdate()
+        {
+            updateStatus(GetStatus());
         }
 
         public void Start()
@@ -37,7 +107,7 @@ namespace Zombie_apocolypse_telltale
             output("==================================================");
             output("           ZOMBIE APOCALYPSE: SURVIVAL            ");
             output("==================================================");
-            updateStatus(playerHealth, inventory, currentChapter);
+            PushStatusUpdate();
             NextState();
         }
 
@@ -47,7 +117,7 @@ namespace Zombie_apocolypse_telltale
             {
                 output("\n*** YOUR WOUNDS WERE TOO SEVERE. YOU HAVE DIED. ***");
                 updateOptions(null, null, null, null);
-                updateStatus(playerHealth, inventory, currentChapter);
+                PushStatusUpdate();
                 gameRunning = false;
                 return;
             }
@@ -138,14 +208,14 @@ namespace Zombie_apocolypse_telltale
                     return;
                 }
                 updateOptions(null, null, null, null);
-                updateStatus(playerHealth, inventory, currentChapter);
+                PushStatusUpdate();
                 gameRunning = false;
             }
         }
 
         private void StartReading(string[] paras)
         {
-            updateStatus(playerHealth, inventory, currentChapter);
+            PushStatusUpdate();
             chapterParagraphs = new List<string>(paras);
             currentParagraphIndex = 0;
             isReading = true;
@@ -172,13 +242,115 @@ namespace Zombie_apocolypse_telltale
 
         private void ShowChapterOptions()
         {
-            // --- NAYA FIX: Faltu status wala button nikal diya ---
-            if (currentChapter == 1) updateOptions("Search the guard's body", "Flee through emergency exit", null, null);
-            else if (currentChapter == 2) updateOptions("Scavenge medical supplies", "Escort them to checkpoint", null, null);
-            else if (currentChapter == 3) updateOptions("Dig through the rubble", "Grab the child and run", "Use Medkit", null);
-            else if (currentChapter == 4) updateOptions("Use inventory weapon", "Fight barehanded", "Use Medkit", null);
+            ProcessTurnEffects();
+            if (playerHealth <= 0) { NextState(); return; }
 
-            updateStatus(playerHealth, inventory, currentChapter);
+            if (currentChapter == 1) updateOptions("Scavenge area", "Flee through emergency exit", "Use Item", null);
+            else if (currentChapter == 2) updateOptions("Scavenge supplies", "Escort them to checkpoint", "Use Item", null);
+            else if (currentChapter == 3) updateOptions("Dig through the rubble", "Grab the child and run", "Use Item", null);
+            else if (currentChapter == 4) 
+            {
+                string combatOpt = weaponDurability.ContainsKey("Pipe") ? "Use Pipe" : "Fight barehanded";
+                string stealthOpt = weaponDurability.ContainsKey("Shiv") ? "Stealth Kill (Shiv)" : "Sneak past";
+                updateOptions(combatOpt, stealthOpt, "Use Item", null);
+            }
+
+            PushStatusUpdate();
+        }
+
+        public int CurrentChapter() => currentChapter;
+
+        private void AddComponent(string name)
+        {
+            if (!components.ContainsKey(name)) components[name] = 0;
+            components[name]++;
+            output($"> You found: {name}\n");
+        }
+
+        private void AttemptScavenge(string location)
+        {
+            DrainStats(10, 15, 20); // Scavenging takes energy
+            if (playerStamina < 20)
+            {
+                output("> You are too exhausted to scavenge effectively.\n");
+                return;
+            }
+
+            int chance = rng.Next(1, 101);
+            if (chance <= 50)
+            {
+                string[] parts = { "Rags", "Alcohol", "Blades", "Scrap", "Empty Bottle" };
+                string part1 = parts[rng.Next(parts.Length)];
+                string part2 = parts[rng.Next(parts.Length)];
+                AddComponent(part1);
+                if (rng.Next(100) > 50) AddComponent(part2);
+            }
+            else if (chance <= 65 && !weaponDurability.ContainsKey("Pipe"))
+            {
+                output("> You search and find a sturdy Steel Pipe!\n");
+                weaponDurability["Pipe"] = 3;
+            }
+            else if (chance <= 75)
+            {
+                output("> You found some Antibiotics!\n");
+                inventory.Add("Antibiotics");
+            }
+            else if (chance <= 85)
+            {
+                output("> You search carefully but find nothing useful.\n");
+            }
+            else
+            {
+                // Ambush
+                output("> You were ambushed while searching!\n");
+                int dmg = rng.Next(10, 25);
+                playerHealth -= dmg;
+                output($"[ You took {dmg} damage! ]\n");
+                if (rng.Next(1, 100) > 60)
+                {
+                    isBleeding = true;
+                    output("[ You are BLEEDING! Find a bandage quickly. ]\n");
+                }
+            }
+        }
+
+        public void CraftItem(string recipe)
+        {
+            if (recipe == "Medkit")
+            {
+                if (components.ContainsKey("Rags") && components["Rags"] > 0 &&
+                    components.ContainsKey("Alcohol") && components["Alcohol"] > 0)
+                {
+                    components["Rags"]--; components["Alcohol"]--;
+                    inventory.Add("Medkit");
+                    output($"> Crafted: Medkit\n");
+                }
+                else output("> Missing components for Medkit!\n");
+            }
+            else if (recipe == "Shiv")
+            {
+                if (components.ContainsKey("Blades") && components["Blades"] > 0 &&
+                    components.ContainsKey("Scrap") && components["Scrap"] > 0)
+                {
+                    components["Blades"]--; components["Scrap"]--;
+                    weaponDurability["Shiv"] = 1;
+                    output($"> Crafted: Shiv\n");
+                }
+                else output("> Missing components for Shiv!\n");
+            }
+            else if (recipe == "Molotov")
+            {
+                if (components.ContainsKey("Rags") && components["Rags"] > 0 &&
+                    components.ContainsKey("Alcohol") && components["Alcohol"] > 0 &&
+                    components.ContainsKey("Empty Bottle") && components["Empty Bottle"] > 0)
+                {
+                    components["Rags"]--; components["Alcohol"]--; components["Empty Bottle"]--;
+                    inventory.Add("Molotov");
+                    output($"> Crafted: Molotov\n");
+                }
+                else output("> Missing components for Molotov!\n");
+            }
+            PushStatusUpdate();
         }
 
         public void Choose(int option)
@@ -190,96 +362,191 @@ namespace Zombie_apocolypse_telltale
             {
                 if (option == 1)
                 {
-                    if (!inventory.Contains("Fire Axe"))
-                    {
-                        output("> You quickly search the body and find a Fire Axe!\n");
-                        inventory.Add("Fire Axe");
-                    }
-                    else output("> Nothing left here.\n");
+                    AttemptScavenge("Mall");
                 }
                 else if (option == 2)
                 {
                     output("> You smash open the exit doors and escape.\n");
+                    DrainStats(20, 20, 30);
                     currentChapter = 2; chapterIntroPlayed = false;
                 }
+                else if (option == 3) UseItem();
             }
             else if (currentChapter == 2)
             {
                 if (option == 1)
                 {
-                    if (!inventory.Contains("Medkit"))
-                    {
-                        output("> You find a Medkit!\n");
-                        inventory.Add("Medkit");
-                    }
-                    else output("> Nothing left here.\n");
+                    AttemptScavenge("Bunker");
                 }
                 else if (option == 2)
                 {
                     output("> \"Pack your things,\" you tell her. \"We leave soon.\"\n");
+                    DrainStats(15, 10, 20);
                     currentChapter = 3; chapterIntroPlayed = false;
                 }
+                else if (option == 3) UseItem();
             }
             else if (currentChapter == 3)
             {
                 if (option == 1)
                 {
                     output("> You try to dig her out. You show mercy.\n");
-                    int dmg = rng.Next(20, 41); playerHealth -= dmg;
-                    output($"[ You took {dmg} damage! ]\n");
-                    trustedSarah = true;
+                    DrainStats(10, 10, 40);
+                    if (playerStamina < 30) {
+                        output("> You lack the stamina to dig efficiently. The roof collapses more!\n");
+                        int dmg = rng.Next(25, 45); playerHealth -= dmg;
+                        output($"[ You took {dmg} damage! ]\n");
+                    } else {
+                        output("> You haul her out successfully just in time.\n");
+                        int dmg = rng.Next(5, 15); playerHealth -= dmg;
+                        output($"[ You took {dmg} damage! ]\n");
+                        trustedSarah = true;
+                    }
                 }
                 else if (option == 2)
                 {
                     output("> You grab the child and sprint up the ladder!\n");
+                    DrainStats(25, 25, 50);
                     currentChapter = 4; chapterIntroPlayed = false; trustedSarah = false;
                 }
-                else if (option == 3) UseMedkit();
+                else if (option == 3) UseItem();
             }
             else if (currentChapter == 4)
             {
                 if (option == 1)
                 {
-                    if (inventory.Contains("Fire Axe"))
+                    if (weaponDurability.ContainsKey("Pipe") && weaponDurability["Pipe"] > 0)
                     {
-                        output("> You swing the Fire Axe and clear a path!\n");
-                        int dmg = rng.Next(5, 16); playerHealth -= dmg;
+                        output("> You swing the Steel Pipe and crush skulls!\n");
+                        int dmg = playerStamina > 40 ? rng.Next(5, 12) : rng.Next(15, 22);
+                        playerHealth -= dmg;
                         output($"[ You took {dmg} damage. ]\n");
+                        DrainStats(15, 15, 30);
+                        weaponDurability["Pipe"]--;
+                        if (weaponDurability["Pipe"] <= 0) { weaponDurability.Remove("Pipe"); output("> Your Pipe shattered!\n"); }
                         savedChild = true; currentChapter = 5; chapterIntroPlayed = false;
                     }
                     else
                     {
-                        output("> You have no weapon! The horde swarms you!\n");
-                        int dmg = rng.Next(40, 61); playerHealth -= dmg;
-                        output($"[ You took a massive {dmg} damage! ]\n");
-                        if (playerHealth > 0) { savedChild = false; currentChapter = 5; chapterIntroPlayed = false; }
+                        output("> You try to fight them head on, but you are unarmed!\n");
+                        AttemptBarehandedFight();
                     }
                 }
                 else if (option == 2)
                 {
-                    output("> You fight barehanded in a desperate struggle.\n");
-                    int dmg = rng.Next(50, 81); playerHealth -= dmg;
-                    output($"[ You took a brutal {dmg} damage! ]\n");
-                    if (playerHealth > 0) { savedChild = false; currentChapter = 5; chapterIntroPlayed = false; }
+                    if (weaponDurability.ContainsKey("Shiv") && weaponDurability["Shiv"] > 0)
+                    {
+                        output("> You silently execute the lead clicker with your Shiv!\n");
+                        output("> The rest of the horde ignores you as you slip away safely.\n");
+                        weaponDurability["Shiv"]--;
+                        if (weaponDurability["Shiv"] <= 0) { weaponDurability.Remove("Shiv"); output("> Your Shiv snapped!\n"); }
+                        DrainStats(5, 5, 15);
+                        savedChild = true; currentChapter = 5; chapterIntroPlayed = false;
+                    }
+                    else
+                    {
+                        output("> You try to sneak past... but you step on glass!\n");
+                        output("> The horde swarms you!\n");
+                        int dmg = rng.Next(25, 45); playerHealth -= dmg;
+                        output($"[ You took {dmg} damage! ]\n");
+                        DrainStats(25, 20, 60);
+                        if (playerHealth > 0) { savedChild = false; currentChapter = 5; chapterIntroPlayed = false; }
+                    }
                 }
-                else if (option == 3) UseMedkit();
+                else if (option == 3) UseItem();
             }
 
-            updateStatus(playerHealth, inventory, currentChapter);
-            if (!chapterIntroPlayed && gameRunning) NextState();
+            PushStatusUpdate();
+            if (!chapterIntroPlayed && gameRunning && playerHealth > 0) NextState();
+            else if (playerHealth <= 0) NextState(); // Die instantly
         }
 
-        private void UseMedkit()
+        private void AttemptBarehandedFight()
         {
-            if (inventory.Contains("Medkit"))
+            output("> You fight barehanded in a desperate struggle.\n");
+            DrainStats(30, 30, 80);
+            int dmg = rng.Next(40, 71); 
+            if (playerStamina < 20) dmg += 20; // Exhaustion penalty
+            
+            playerHealth -= dmg;
+            output($"[ You took a brutal {dmg} damage! ]\n");
+            
+            if (rng.Next(1, 100) > 50) 
             {
-                if (playerHealth == 100) { output("> Health is full!\n"); return; }
-                output("> You use the Medkit and patch your wounds.\n");
-                inventory.Remove("Medkit");
-                playerHealth = Math.Min(100, playerHealth + 40);
-                output($"[ Health restored to {playerHealth} ]\n");
+                isBleeding = true;
+                output("[ You are BLEEDING! ]\n");
             }
-            else output("> You don't have a Medkit!\n");
+            if (rng.Next(1, 100) > 75)
+            {
+                isInfected = true;
+                output("[ WARNING: YOU HAVE BEEN BITTEN. YOU ARE INFECTED! ]\n");
+            }
+
+            if (playerHealth > 0) { savedChild = false; currentChapter = 5; chapterIntroPlayed = false; }
+        }
+
+        private void UseItem()
+        {
+            if (inventory.Count == 0)
+            {
+                output("> Your inventory is empty.\n");
+                return;
+            }
+
+            // A simplified item usage, tries to auto-consume the best item for current status
+            if (isBleeding && inventory.Contains("Bandage"))
+            {
+                inventory.Remove("Bandage");
+                isBleeding = false;
+                output("> You use a Bandage. The bleeding stops.\n");
+                return;
+            }
+            if (isInfected && inventory.Contains("Antibiotics"))
+            {
+                inventory.Remove("Antibiotics");
+                isInfected = false;
+                output("> You swallow Antibiotics. The infection recedes.\n");
+                return;
+            }
+            if (playerHunger <= 50 && inventory.Contains("Food Ration"))
+            {
+                inventory.Remove("Food Ration");
+                playerHunger = Math.Min(100, playerHunger + 40);
+                output("> You eat a Food Ration. Hunger satiated.\n");
+                return;
+            }
+            if (playerThirst <= 50 && inventory.Contains("Water Bottle"))
+            {
+                inventory.Remove("Water Bottle");
+                playerThirst = Math.Min(100, playerThirst + 50);
+                output("> You drink water. Thirst quenched.\n");
+                return;
+            }
+            if (playerHealth < 100 && inventory.Contains("Medkit"))
+            {
+                inventory.Remove("Medkit");
+                playerHealth = Math.Min(100, playerHealth + 50);
+                output("> You use a Medkit. Wounds patched.\n");
+                return;
+            }
+
+            // Fallbacks: If player just holds item but doesn't "need" it urgently, consume anyway to free space
+            if (inventory.Contains("Food Ration"))
+            {
+                inventory.Remove("Food Ration");
+                playerHunger = Math.Min(100, playerHunger + 40);
+                output("> You eat a Food Ration.\n");
+                return;
+            }
+            if (inventory.Contains("Water Bottle"))
+            {
+                inventory.Remove("Water Bottle");
+                playerThirst = Math.Min(100, playerThirst + 50);
+                output("> You drink water.\n");
+                return;
+            }
+            
+            output("> Currently holding no consumable items that you can use right now.\n");
         }
 
         public void SaveGame() { /* Save Logic same as before */ }
